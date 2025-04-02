@@ -1,1 +1,288 @@
+1. What is the total number of users for LioCinema and Jotstar, and how do they compare in terms of growth trends (January–November 2024)?
 
+# Total users in LioCinema
+select count(distinct user_id) as total_users_in_LioCinema from liocinema_db.subscribers;
+
+# Monthly users Grwoth in Lio Cinema
+select date_format(subscription_date, '%b %Y') as Month, 
+count(distinct user_id) as Monthly_Users
+from liocinema_db.subscribers
+where subscription_date between '2024-01-01' AND '2024-11-30'
+group by date_format(subscription_date, '%b %Y')
+order by Month;
+
+# Total users in Jotstar
+select count(distinct user_id) as total_users_in_Jotstar from jotstar_db.subscribers;
+
+# Monthly users Growth in Jot Star
+select date_format(subscription_date, '%Y-%m') as Month, 
+count(distinct user_id) as Monthly_Users
+from jotstar_db.subscribers
+where subscription_date between '2024-01-01' AND '2024-11-30'
+group by date_format(subscription_date, '%Y-%m')
+order by Month;
+
+
+2. What is the total number of contents available on LioCinema vs. Jotstar? How do they differ in terms of language and content type? 
+
+SELECT 
+    'Liocinema' AS platform, 
+    language, 
+    content_type, 
+    COUNT(DISTINCT content_id) AS total_content
+FROM liocinema_db.contents
+GROUP BY language, content_type
+
+UNION ALL
+
+SELECT 
+    'Jotstar' AS platform, 
+    language, 
+    content_type, 
+    COUNT(DISTINCT content_id) AS total_content
+FROM jotstar_db.contents
+GROUP BY language, content_type;
+
+
+3. What is the distribution of users by age group, city tier, and subscription plan for each platform?
+
+# Total Users for Jotstar
+SELECT * FROM jotstar_db.subscribers;
+
+select age_group, city_tier, subscription_plan, count(user_id) as total_no_of_users
+from jotstar_db.subscribers
+group by age_group, city_tier, subscription_plan
+order by age_group, total_no_of_users desc;
+
+
+# Total users for liocinema
+SELECT * FROM liocinema_db.subscribers;
+
+select age_group, city_tier, subscription_plan, count(user_id) as total_no_of_users
+from liocinema_db.subscribers
+group by age_group, city_tier, subscription_plan
+order by age_group, total_no_of_users desc;
+
+4. What percentage of LioCinema and Jotstar users are active vs. inactive? How do  these rates vary by age group and subscription plan?
+
+# Query for percentage of LioCinema  active users vary by age group and subscription plan
+select "LioCinema" as Platform,
+age_group,
+       current_subscription_plan,
+       count(user_id) as Total_users,
+       sum(case when last_active_date is NULL then 1 else 0 end) as Total_Active_users,
+       (sum(case when last_active_date is NULL then 1 else 0 end) * 100.0 / count(user_id)) as perc_of_active_users
+from liocinema_db.subscribers
+group by age_group, current_subscription_plan
+order by age_group;
+
+# Query for percentage of JotStar  active users vary by age group and subscription plan
+select  "Jotstar" as Platform,
+age_group,
+       current_subscription_plan,
+       count(user_id) as Total_users,
+       sum(case when last_active_date is NULL then 1 else 0 end) as Total_Active_users,
+       (sum(case when last_active_date is NULL then 1 else 0 end) * 100.0 / count(user_id)) as perc_of_active_users
+from jotstar_db.subscribers
+group by age_group, current_subscription_plan
+order by age_group;
+
+5. What is the average watch time for LioCinema vs. Jotstar during the analysis period? How do these compare by city tier and device type?
+
+## Average watch time for Jot Star by city tier and device type
+select s.city_tier, l.device_type, avg(l.total_watch_time_mins)/60 as Average_Watch_Time_in_hrs
+from jotstar_db.content_consumption l 
+join jotstar_db.subscribers s 
+on l.user_id = s.user_id
+group by s.city_tier, l.device_type
+order by city_tier;
+
+## Average watch time for Lio Cinemas by city tier and device type
+select s.city_tier, l.device_type, avg(l.total_watch_time_mins)/60 as Average_Watch_Time_in_hrs
+from liocinema_db.content_consumption l 
+join liocinema_db.subscribers s 
+on l.user_id = s.user_id
+group by s.city_tier, l.device_type
+order by city_tier;
+
+6. How do inactivity patterns correlate with total watch time or average watch time? Are less engaged users more likely to become inactive? 
+
+# Query for LioCinema
+SELECT s.user_id, sum(c.total_watch_time_mins) as Total_Watch_Time,
+    CASE 
+        WHEN sum(c.total_watch_time_mins) < 100 THEN 'Low Engagement'
+        WHEN sum(c.total_watch_time_mins) BETWEEN 100 AND 500 THEN 'Moderate Engagement'
+        ELSE 'High Engagement'
+    END AS engagement_level,
+    DATEDIFF('2024-11-30', max(s.last_active_date)) as Days_Since_Last_Activity
+FROM 
+    liocinema_db.subscribers s 
+    join liocinema_db.content_consumption c
+    on s.user_id = c.user_id
+GROUP BY s.user_id
+having Days_Since_Last_Activity > 30
+
+# Query for Jotstar
+SELECT s.user_id, sum(c.total_watch_time_mins) as Total_Watch_Time,
+    CASE 
+        WHEN sum(c.total_watch_time_mins) < 100 THEN 'Low Engagement'
+        WHEN sum(c.total_watch_time_mins) BETWEEN 100 AND 500 THEN 'Moderate Engagement'
+        ELSE 'High Engagement'
+    END AS engagement_level,
+    DATEDIFF('2024-11-30', max(s.last_active_date)) as Days_Since_Last_Activity
+FROM 
+    jotstar_db.subscribers s 
+    join jotstar_db.content_consumption c
+    on s.user_id = c.user_id
+GROUP BY s.user_id
+having Days_Since_Last_Activity > 30;
+
+7. How do downgrade trends differ between LioCinema and Jotstar? Are downgrades more prevalent on one platform compared to the other? 
+
+# Query for Liocinema
+SELECT 
+    'Liocinema' AS platform,
+    DATE_FORMAT(subscription_date, '%b %Y') AS Month,
+    COUNT(user_id) AS Subs_downgrades
+FROM liocinema_db.subscribers
+WHERE status = 'Downgrade'
+GROUP BY YEAR(subscription_date), MONTH(subscription_date), DATE_FORMAT(subscription_date, '%b %Y')
+ORDER BY YEAR(subscription_date), MONTH(subscription_date);
+
+# Query for Jotstar
+SELECT 
+    'Jotstar' AS platform,
+    DATE_FORMAT(subscription_date, '%b %Y') AS Month,
+    COUNT(user_id) AS Subs_downgrades
+FROM Jotstar_db.subscribers
+WHERE status = 'Downgrade'
+GROUP BY YEAR(subscription_date), MONTH(subscription_date), DATE_FORMAT(subscription_date, '%b %Y')
+ORDER BY YEAR(subscription_date), MONTH(subscription_date);
+
+8. What are the most common upgrade transitions (e.g., Free to Basic, Free to VIP, Free to Premium) for LioCinema and Jotstar? How do these differ across platforms?
+
+# Query for Liocinema
+SELECT 
+    'Liocinema' AS platform,
+    COUNT(user_id) AS Subs_Upgrades, 
+    SUM(CASE 
+            WHEN subscription_plan = 'Free' AND new_subscription_plan = 'Basic' 
+            THEN 1 ELSE 0 
+        END) AS No_of_people_Free_To_Basic,
+    SUM(CASE 
+            WHEN subscription_plan = 'Free' AND new_subscription_plan = 'Premium' 
+            THEN 1 ELSE 0 
+        END) AS No_of_people_Free_To_Premium,
+    SUM(CASE 
+            WHEN subscription_plan = 'Basic' AND new_subscription_plan = 'Premium' 
+            THEN 1 ELSE 0 
+        END) AS No_of_people_Basic_To_Premium
+FROM liocinema_db.subscribers
+WHERE status = 'Upgrade';
+
+# Query for JotStar
+
+SELECT 
+    'Jotstar' AS platform,
+    COUNT(user_id) AS Subs_Upgrades, 
+    SUM(CASE 
+            WHEN subscription_plan = 'Free' AND new_subscription_plan = 'VIP' 
+            THEN 1 ELSE 0 
+        END) AS No_of_people_Free_To_VIP,
+    SUM(CASE 
+            WHEN subscription_plan = 'Free' AND new_subscription_plan = 'Premium' 
+            THEN 1 ELSE 0 
+        END) AS No_of_people_Free_To_Premium,
+    SUM(CASE 
+            WHEN subscription_plan = 'Premium' AND new_subscription_plan = 'VIP' 
+            THEN 1 ELSE 0 
+        END) AS No_of_people_Premium_To_VIP
+FROM jotstar_db.subscribers
+WHERE status = 'Upgrade';
+
+
+9. How does the paid user percentage (e.g., Basic, Premium for LioCinema; VIP, Premium for Jotstar) vary across different platforms? Analyse the proportion of  premium users in Tier 1, Tier 2, and Tier 3 cities and identify any notable trends or 
+differences. 
+
+# Paid users by City Tier and Current Subscription plans for Liocinema
+
+with No_of_Users as
+(
+select city_tier, count(distinct user_id) as Total_Users, 
+
+count(distinct case 
+		when User_Type in ('Paid') Then user_id
+        end) as Total_Paid_Users
+from liocinema_db.subscribers
+group by city_tier
+
+
+)
+select city_tier, Total_Users, Total_Paid_Users,
+round((Total_Paid_Users*100/Total_Users),2) as Paid_Users_Perc
+from No_of_Users;
+
+# Paid Users as per Current_Subcsription Plan 
+
+WITH UserCounts AS (
+    -- Calculate overall total users (not grouped by subscription plan)
+    SELECT 
+        COUNT(DISTINCT user_id) AS Overall_Total_Users
+    FROM liocinema_db.subscribers
+),
+PlanWiseCounts AS (
+    -- Calculate total paid users per current subscription plan
+    SELECT 
+        current_subscription_plan, 
+        COUNT(DISTINCT CASE WHEN User_Type = 'Paid' THEN user_id END) AS Total_Paid_Users_Per_Plan
+    FROM liocinema_db.subscribers
+    GROUP BY current_subscription_plan
+)
+SELECT 
+    p.current_subscription_plan, 
+    p.Total_Paid_Users_Per_Plan AS Total_Paid_Users,
+    ROUND((p.Total_Paid_Users_Per_Plan * 100.0 / NULLIF(u.Overall_Total_Users, 0)), 2) AS Paid_Users_Perc_Overall -- Paid % of overall users
+FROM PlanWiseCounts p
+JOIN UserCounts u ON 1=1;
+
+
+
+# Paid users by City Tier and Current Subscription plans for Jotstar
+with No_of_Users as
+(
+select city_tier, count(distinct user_id) as Total_Users, 
+
+count(distinct case 
+		when User_Type in ('Paid') Then user_id
+        end) as Total_Paid_Users
+from jotstar_db.subscribers
+group by city_tier
+
+
+)
+select city_tier, Total_Users, Total_Paid_Users,
+round((Total_Paid_Users*100/Total_Users),2) as Paid_Users_Perc
+from No_of_Users;
+
+# Paid Users as per Current_Subcsription Plan 
+
+WITH UserCounts AS (
+    -- Calculate overall total users (not grouped by subscription plan)
+    SELECT 
+        COUNT(DISTINCT user_id) AS Overall_Total_Users
+    FROM jotstar_db.subscribers
+),
+PlanWiseCounts AS (
+    -- Calculate total paid users per current subscription plan
+    SELECT 
+        current_subscription_plan, 
+        COUNT(DISTINCT CASE WHEN User_Type = 'Paid' THEN user_id END) AS Total_Paid_Users_Per_Plan
+    FROM jotstar_db.subscribers
+    GROUP BY current_subscription_plan
+)
+SELECT 
+    p.current_subscription_plan, 
+    p.Total_Paid_Users_Per_Plan AS Total_Paid_Users,
+    ROUND((p.Total_Paid_Users_Per_Plan * 100.0 / NULLIF(u.Overall_Total_Users, 0)), 2) AS Paid_Users_Perc_Overall -- Paid % of overall users
+FROM PlanWiseCounts p
+JOIN UserCounts u ON 1=1;
